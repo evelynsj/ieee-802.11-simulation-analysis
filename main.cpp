@@ -29,7 +29,7 @@ int GELsize;
 
 /* TODO: global variables for processing */
 int NUM_HOSTS = 1; // variable
-int T = 400; // variable. TODO: figure out how much this is?
+int T = 5; // variable. TODO: figure out how much this is?
 double ARRIVAL_RATE = 0.01; // variable lambda
 double SIFS = 0.00005;
 double DIFS = 0.0001;
@@ -137,6 +137,17 @@ void create_arrival(double ev_time, Host* host) {
     insert(ev);
 }
 
+void create_backoff(double ev_time, Host* host, int backoff) {
+    cout << "Create backoff" << endl;
+    Event *ev = new Event;
+    ev->event_time = ev_time;
+    ev->type = Event::backoff;
+    ev->host = host;
+    // TODO: NEED SERVICE TIME??
+    ev->host->backoff = backoff;
+    insert(ev);
+}
+
 void process_arrival_event(Event* curr_ev) {
     cout << "process arrival event" << endl;
     current_time = curr_ev->event_time;
@@ -146,10 +157,9 @@ void process_arrival_event(Event* curr_ev) {
     if (channel_idle) {
         cout << "Channel is idle" << endl;
         // Since channel is not busy, can go to backoff procedure right away
-        // TODO: generate backoff
-        // TODO: Create a backoff event
-            // event time = current time + DIFS (start of backoff)
-            // type = backoff
+        double backoff = generate_backoff(); // create a backoff event
+        double backoff_event_time = current_time + DIFS;
+        create_backoff(backoff_event_time, curr_ev->host, backoff);
     } else {
         // TODO IF CHANNEL IS BUSY
     }
