@@ -21,7 +21,10 @@ struct Host {
     int backoff;
 };
 
-// TODO: Do we need a global event list?
+// TODO: might not need
+Event* GELhead;
+Event* GELtail;
+int GELsize;
 
 /* TODO: global variables for processing */
 int NUM_HOSTS = 1; // variable
@@ -48,6 +51,17 @@ double neg_exp_time(double rate) {
     return ((-1/rate)*log(1-u));
 }
 
+void create_arrival(double ev_time, Host* host) {
+    cout << "Create arrival" << endl;
+    Event *ev = new Event;
+    ev->event_time = ev_time;
+    ev->type = Event::arrival;
+    ev->host = host;
+    // TODO: NEED SERVICE TIME??
+    // Event* next; // do this at insert
+    // Event* prev; // do this at insert
+}
+
 void initialize() {
 
     /* Initialize processing variables */
@@ -61,16 +75,18 @@ void initialize() {
     avg_network_delay = 0.0;
 
     /* Initialize data structures */
-    // TODO: Initialize GEL if needed
+    // TODO: Might not need GEL
+    GELhead = nullptr;
+    GELtail = nullptr;
+    GELsize = 0;
     Host *hosts[NUM_HOSTS];
 
     for (int i = 0; i < NUM_HOSTS; ++i) {
-        hosts[i] = new Host();
+        hosts[i] = new Host;
         hosts[i]->backoff = -1;
         // TODO: INIT ACK
-        // TODO: create arrival event for each host
-        // create_arrival();
-        // double first_arrival_time = neg_exp_time(arrival_rate) + current_time;
+        double first_arrival_time = neg_exp_time(ARRIVAL_RATE) + current_time;
+        create_arrival(first_arrival_time, hosts[i]);
     }
 
 
