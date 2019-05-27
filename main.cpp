@@ -71,6 +71,11 @@ void iterate() {
     cout << "************" << endl;
 }
 
+void delete_head() {
+    GELhead = GELhead->next;
+    GELsize--;
+}
+
 void insert(Event* event) { // insert to GEL
     // if head is nullptr
     if (GELhead == nullptr) {
@@ -152,5 +157,12 @@ void initialize() {
 int main() {
     
     initialize();
+
+    for (int i = 0; i < 1; ++i) {
+        // 1. get first event from GEL
+        // 2. if the first event is an arrival event then process-arrival-event
+        // 3. if the first event is a backoff event then process-backoff-event
+        // 4. Otherwise, it must be a departure event and hence process-service-completion
+    }
 
 }
