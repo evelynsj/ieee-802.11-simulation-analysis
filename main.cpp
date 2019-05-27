@@ -1,5 +1,6 @@
 #include <iostream>
 #include <queue>
+#include <cmath>
 using namespace std;
 
 struct Host;
@@ -29,7 +30,7 @@ double ARRIVAL_RATE = 0.01; // variable lambda
 double SIFS = 0.00005;
 double DIFS = 0.0001;
 double SENSE = 0.00001;
-double curr_time;
+double current_time;
 double service_rate; // mu. TODO: is this needed?
 
 /* global variables for statistics */
@@ -41,10 +42,16 @@ double total_delay; // TODO: figure out how to do this
 double throughput;
 double avg_network_delay;
 
+double neg_exp_time(double rate) {
+    double u;
+    u = drand48();
+    return ((-1/rate)*log(1-u));
+}
+
 void initialize() {
 
     /* Initialize processing variables */
-    curr_time = 0.0;
+    current_time = 0.0;
 
     /* Initialize statistical variables */
     transmitted_bytes = 0.0;
@@ -61,6 +68,9 @@ void initialize() {
         hosts[i] = new Host();
         hosts[i]->backoff = -1;
         // TODO: INIT ACK
+        // TODO: create arrival event for each host
+        // create_arrival();
+        // double first_arrival_time = neg_exp_time(arrival_rate) + current_time;
     }
 
 
