@@ -7,6 +7,10 @@ using namespace std;
 
 struct Host;
 
+struct Frame {
+    double r;
+};
+
 struct Event {
     double event_time;
     double service_time; // TODO: might not need
@@ -14,6 +18,7 @@ struct Event {
     event_type type;
     Event* next;
     Event* prev;
+    Frame* fr;
     Host* host; // TODO: needed? or just need the number?
 };
 
@@ -135,6 +140,8 @@ void create_arrival(double ev_time, Host* host) {
     ev->type = Event::arrival;
     ev->host = host;
     // TODO: NEED SERVICE TIME??
+    ev->fr = new Frame;
+    // ev->fr->r = 0;
     insert(ev);
 }
 
@@ -161,6 +168,7 @@ void process_arrival_event(Event* curr_ev) {
         double backoff = generate_backoff(); // create a backoff event
         double backoff_event_time = current_time + DIFS;
         create_backoff(backoff_event_time, curr_ev->host, backoff);
+        // TODO MIGHT NEED TO INSERT TO BUFFER HERE
     } else {
         // TODO IF CHANNEL IS BUSY
     }
@@ -175,8 +183,15 @@ void process_backoff_event(Event* curr_ev) {
         int decrease_backoff = curr_ev->host->backoff - 1;
         // TODO: case if counter = 0
         if (decrease_backoff == 0) {
-            // cout << "backoff is 0" << endl;
-            // cout << curr_ev->event_time << endl;
+            cout << "backoff is 0" << endl;
+            cout << curr_ev->event_time << endl; 
+            // TODO: We need to get the data frame length
+            // TODO: Create a departure event -> actually begins transmission 
+            // TODO: What is the event time? time transmission ends + SIFS delay and sends the ACK packet
+                // event_time = current_time + transmission_time + SIFS
+            // TODO do we need to reset backoff to -1?           
+            // TODO: we need a destination host to send the ack packet             
+            // TODO: for ack frame, create an arrival event and discard?                               
         } else {
             double next_event_time = current_time + SENSE;
             // cout << next_event_time << endl;
