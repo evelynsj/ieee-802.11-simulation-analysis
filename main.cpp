@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <queue>
 #include <cmath>
 #include <random>
@@ -138,7 +139,7 @@ void create_arrival(double ev_time, Host* host) {
 }
 
 void create_backoff(double ev_time, Host* host, int backoff) {
-    cout << "Create backoff" << endl;
+    // cout << "Create backoff" << endl;
     Event *ev = new Event;
     ev->event_time = ev_time;
     ev->type = Event::backoff;
@@ -149,13 +150,13 @@ void create_backoff(double ev_time, Host* host, int backoff) {
 }
 
 void process_arrival_event(Event* curr_ev) {
-    cout << "process arrival event" << endl;
+    // cout << "process arrival event" << endl;
     current_time = curr_ev->event_time;
     double next_event_time = current_time + neg_exp_time(ARRIVAL_RATE); // create next arrival for host
     create_arrival(next_event_time, curr_ev->host);
 
     if (channel_idle) {
-        cout << "Channel is idle" << endl;
+        // cout << "Channel is idle" << endl;
         // Since channel is not busy, can go to backoff procedure right away
         double backoff = generate_backoff(); // create a backoff event
         double backoff_event_time = current_time + DIFS;
@@ -163,6 +164,26 @@ void process_arrival_event(Event* curr_ev) {
     } else {
         // TODO IF CHANNEL IS BUSY
     }
+}
+
+void process_backoff_event(Event* curr_ev) {
+    cout << "process backoff event" << endl;
+    current_time = curr_ev->event_time;
+    // cout << current_time << endl;
+    // Sense the channel
+    if (channel_idle) {
+        int decrease_backoff = curr_ev->host->backoff - 1;
+        // TODO: case if counter = 0
+        if (decrease_backoff == 0) {
+            // cout << "backoff is 0" << endl;
+            // cout << curr_ev->event_time << endl;
+        } else {
+            double next_event_time = current_time + SENSE;
+            // cout << next_event_time << endl;
+            create_backoff(next_event_time, curr_ev->host, decrease_backoff);
+        }
+    }
+    // TODO: IF CHANNEL IS BUSY
 }
 
 void initialize() {
@@ -196,20 +217,25 @@ void initialize() {
 }
 
 int main() {
-    
+    cout << fixed << endl;
+    cout << setprecision(5);
     initialize();
 
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 10; ++i) {
+        if (GELsize == 0) {
+            break;
+        }
         // 1. get first event from GEL
         Event *ev = GELhead; 
         delete_head(); // delete front
 
-        // 2. if the first event is an arrival event then process-arrival-event
+        // 2. if the event is an arrival event then process-arrival-event
         if (ev->type == Event::arrival) {
             process_arrival_event(ev);
+        } else if (ev->type == Event::backoff) { // 3. if the event is a backoff event then process-backoff-event
+            process_backoff_event(ev);
         }
-
-        // TODO: 3. if the first event is a backoff event then process-backoff-event
+        
         // TODO: 4. Otherwise, it must be a departure event and hence process-service-completion
     }
 
