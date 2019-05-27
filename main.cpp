@@ -37,6 +37,7 @@ int GELsize;
 int NUM_HOSTS = 1; // variable
 int T = 5; // variable. TODO: figure out how much this is?
 double ARRIVAL_RATE = 0.01; // variable lambda
+double MAX_FRAME = 1544; 
 double SIFS = 0.00005;
 double DIFS = 0.0001;
 double SENSE = 0.00001;
@@ -67,6 +68,16 @@ double generate_backoff() {
     double dist = distribution(generator) * T;
 
     return round(dist);
+}
+
+int generate_frame_len() {
+    // negative exponentially distributed random variable in range 0 < r <= 1544
+    double len = neg_exp_time(1) * MAX_FRAME; // multiplied by MAX_FRAME to scale 
+    if (len > MAX_FRAME) {
+        return MAX_FRAME;
+    }
+
+    return round(len);
 }
 
 void iterate() {
@@ -141,11 +152,11 @@ void create_arrival(double ev_time, Host* host) {
     ev->host = host;
     // TODO: NEED SERVICE TIME??
     ev->fr = new Frame;
-    // ev->fr->r = 0;
+    ev->fr->r = generate_frame_len();
     insert(ev);
 }
 
-void create_backoff(double ev_time, Host* host, int backoff) {
+void create_backoff(double ev_time, Host* host, int backoff, Frame* frame) {
     // cout << "Create backoff" << endl;
     Event *ev = new Event;
     ev->event_time = ev_time;
@@ -153,6 +164,7 @@ void create_backoff(double ev_time, Host* host, int backoff) {
     ev->host = host;
     // TODO: NEED SERVICE TIME??
     ev->host->backoff = backoff;
+    ev->fr = frame;
     insert(ev);
 }
 
@@ -167,7 +179,7 @@ void process_arrival_event(Event* curr_ev) {
         // Since channel is not busy, can go to backoff procedure right away
         double backoff = generate_backoff(); // create a backoff event
         double backoff_event_time = current_time + DIFS;
-        create_backoff(backoff_event_time, curr_ev->host, backoff);
+        create_backoff(backoff_event_time, curr_ev->host, backoff, curr_ev->fr);
         // TODO MIGHT NEED TO INSERT TO BUFFER HERE
     } else {
         // TODO IF CHANNEL IS BUSY
@@ -175,7 +187,7 @@ void process_arrival_event(Event* curr_ev) {
 }
 
 void process_backoff_event(Event* curr_ev) {
-    cout << "process backoff event" << endl;
+    // cout << "process backoff event" << endl;
     current_time = curr_ev->event_time;
     // cout << current_time << endl;
     // Sense the channel
@@ -186,6 +198,7 @@ void process_backoff_event(Event* curr_ev) {
             cout << "backoff is 0" << endl;
             cout << curr_ev->event_time << endl; 
             // TODO: We need to get the data frame length
+            generate_frame_len();
             // TODO: Create a departure event -> actually begins transmission 
             // TODO: What is the event time? time transmission ends + SIFS delay and sends the ACK packet
                 // event_time = current_time + transmission_time + SIFS
@@ -195,7 +208,7 @@ void process_backoff_event(Event* curr_ev) {
         } else {
             double next_event_time = current_time + SENSE;
             // cout << next_event_time << endl;
-            create_backoff(next_event_time, curr_ev->host, decrease_backoff);
+            create_backoff(next_event_time, curr_ev->host, decrease_backoff, curr_ev->fr);
         }
     }
     // TODO: IF CHANNEL IS BUSY
