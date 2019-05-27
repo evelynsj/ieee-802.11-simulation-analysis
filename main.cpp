@@ -51,6 +51,65 @@ double neg_exp_time(double rate) {
     return ((-1/rate)*log(1-u));
 }
 
+void iterate() {
+    cout << "***********" << endl;
+    cout << "start iterating" << endl;
+    cout << "GELsize is " << GELsize << endl;
+    Event *curr = GELhead;
+    while (curr != nullptr) {
+        if (curr->type == Event::arrival) {
+            cout << "Arrival ";
+        } else if (curr->type == Event::departure) {
+            cout << "Departure ";
+        } else {
+            cout << "Backoff ";
+        }
+        cout << curr->event_time << endl;
+        curr = curr->next;
+    }
+    cout << "done iterating" << endl;
+    cout << "************" << endl;
+}
+
+void insert(Event* event) { // insert to GEL
+    // if head is nullptr
+    if (GELhead == nullptr) {
+        GELhead = event;
+        GELhead->next = nullptr;
+        GELhead->prev = nullptr; 
+    }
+    else {
+        if (event->event_time < GELhead->event_time) { // insert in front of head
+            event->next = GELhead;
+            event->prev = nullptr;
+            GELhead->prev = event;
+            GELhead = event;
+        }
+        else {
+            Event *curr = GELhead;
+            Event *prev = nullptr;
+            while (curr) {
+                if (event->event_time < curr->event_time) { // Insert in the middle
+                    prev = curr->prev;
+                    prev->next = event;
+                    event->prev = prev;
+                    event->next = curr;
+                    curr->prev = event;
+                    break;
+                }
+                if (curr->next == nullptr && event->event_time > curr->event_time) { // Insert at the end
+                    curr->next = event;
+                    event->prev = curr;
+                    event->next = nullptr;
+                    break;
+                }
+                curr = curr->next;
+            }
+        }
+    }
+    GELsize++;
+}
+
 void create_arrival(double ev_time, Host* host) {
     cout << "Create arrival" << endl;
     Event *ev = new Event;
@@ -58,8 +117,7 @@ void create_arrival(double ev_time, Host* host) {
     ev->type = Event::arrival;
     ev->host = host;
     // TODO: NEED SERVICE TIME??
-    // Event* next; // do this at insert
-    // Event* prev; // do this at insert
+    insert(ev);
 }
 
 void initialize() {
@@ -88,8 +146,6 @@ void initialize() {
         double first_arrival_time = neg_exp_time(ARRIVAL_RATE) + current_time;
         create_arrival(first_arrival_time, hosts[i]);
     }
-
-
     
 }
 
