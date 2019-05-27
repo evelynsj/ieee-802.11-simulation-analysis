@@ -1,6 +1,7 @@
 #include <iostream>
 #include <queue>
 #include <cmath>
+#include <random>
 using namespace std;
 
 struct Host;
@@ -35,6 +36,7 @@ double DIFS = 0.0001;
 double SENSE = 0.00001;
 double current_time;
 double service_rate; // mu. TODO: is this needed?
+bool channel_idle;
 
 /* global variables for statistics */
 double transmitted_bytes;
@@ -49,6 +51,16 @@ double neg_exp_time(double rate) {
     double u;
     u = drand48();
     return ((-1/rate)*log(1-u));
+}
+
+double generate_backoff() {
+    static default_random_engine generator;
+    uniform_real_distribution<double> distribution(1,T);
+
+    // generate uniform random variable between (0,1) and multiply by T
+    double dist = distribution(generator) * T;
+
+    return round(dist);
 }
 
 void iterate() {
@@ -116,7 +128,7 @@ void insert(Event* event) { // insert to GEL
 }
 
 void create_arrival(double ev_time, Host* host) {
-    cout << "Create arrival" << endl;
+    // cout << "Create arrival" << endl;
     Event *ev = new Event;
     ev->event_time = ev_time;
     ev->type = Event::arrival;
@@ -125,10 +137,29 @@ void create_arrival(double ev_time, Host* host) {
     insert(ev);
 }
 
+void process_arrival_event(Event* curr_ev) {
+    cout << "process arrival event" << endl;
+    current_time = curr_ev->event_time;
+    double next_event_time = current_time + neg_exp_time(ARRIVAL_RATE); // create next arrival for host
+    create_arrival(next_event_time, curr_ev->host);
+
+    if (channel_idle) {
+        cout << "Channel is idle" << endl;
+        // Since channel is not busy, can go to backoff procedure right away
+        // TODO: generate backoff
+        // TODO: Create a backoff event
+            // event time = current time + DIFS (start of backoff)
+            // type = backoff
+    } else {
+        // TODO IF CHANNEL IS BUSY
+    }
+}
+
 void initialize() {
 
     /* Initialize processing variables */
     current_time = 0.0;
+    channel_idle = true;
 
     /* Initialize statistical variables */
     transmitted_bytes = 0.0;
@@ -160,9 +191,16 @@ int main() {
 
     for (int i = 0; i < 1; ++i) {
         // 1. get first event from GEL
+        Event *ev = GELhead; 
+        delete_head(); // delete front
+
         // 2. if the first event is an arrival event then process-arrival-event
-        // 3. if the first event is a backoff event then process-backoff-event
-        // 4. Otherwise, it must be a departure event and hence process-service-completion
+        if (ev->type == Event::arrival) {
+            process_arrival_event(ev);
+        }
+
+        // TODO: 3. if the first event is a backoff event then process-backoff-event
+        // TODO: 4. Otherwise, it must be a departure event and hence process-service-completion
     }
 
 }
