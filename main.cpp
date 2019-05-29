@@ -9,6 +9,9 @@ struct Host;
 
 struct Frame {
     double r;
+    bool ack; // to indicate if frame is ack or not
+    Host* src;
+    Host* dest;
 };
 
 struct Event {
@@ -24,7 +27,6 @@ struct Event {
 
 struct Host {
     queue <Event*> buffer; // TODO: when do we use this?
-    int ack; // to indicate if acknowledgment has been received
     int backoff;
 };
 
@@ -34,7 +36,7 @@ Event* GELtail;
 int GELsize;
 
 /* TODO: global variables for processing */
-int NUM_HOSTS = 1; // variable
+int NUM_HOSTS = 2; // variable
 int T = 5; // variable. TODO: figure out how much this is?
 double ARRIVAL_RATE = 0.01; // variable lambda
 double MAX_FRAME = 1544;
@@ -71,6 +73,27 @@ double generate_backoff() {
     return round(dist);
 }
 
+void generate_dest(Host* hosts[], int i) {
+    // TODO: make sure that destination isn't the same as source
+    int dest;
+
+    do {
+        dest = rand() % NUM_HOSTS;
+    } while (dest != i);
+
+    GELhead->fr->dest = hosts[dest];
+
+
+    // for (int i = 0; i < NUM_HOSTS; ++i) {
+    //     // cout << "generate dest" << endl;
+    //     do {
+    //         dest = rand() % NUM_HOSTS;
+    //     } while (dest == i);
+    //     cout << dest << endl;
+    //     hosts[i]->fr->dest = 
+    // }
+}
+
 int generate_frame_len() {
     // negative exponentially distributed random variable in range 0 < r <= 1544
     double len = neg_exp_time(1) * MAX_FRAME; // multiplied by MAX_FRAME to scale 
@@ -82,7 +105,6 @@ int generate_frame_len() {
 }
 
 double generate_transmission_time(double len) {
-    cout << len << endl;
     return (len * 8) / CHANNEL_CAP;
 }
 
@@ -159,6 +181,8 @@ void create_arrival(double ev_time, Host* host) {
     // TODO: NEED SERVICE TIME??
     ev->fr = new Frame;
     ev->fr->r = generate_frame_len();
+    ev->fr->ack = false;
+    ev->fr->src = host;
     insert(ev);
 }
 
@@ -177,7 +201,7 @@ void create_backoff(double ev_time, Host* host, int backoff, Frame* frame) {
 void process_arrival_event(Event* curr_ev) {
     // cout << "process arrival event" << endl;
     current_time = curr_ev->event_time;
-    double next_event_time = current_time + neg_exp_time(ARRIVAL_RATE); // create next arrival for host
+    double next_event_time = current_time + neg_exp_time(ARRIVAL_RATE); // create next arrival for host that is not ack
     create_arrival(next_event_time, curr_ev->host);
 
     if (channel_idle) {
@@ -204,13 +228,13 @@ void process_backoff_event(Event* curr_ev) {
             cout << "backoff is 0" << endl;
             // cout << curr_ev->event_time << endl;
             double transmission_time = generate_transmission_time(curr_ev->fr->r);
+            double dep_event_time = current_time + transmission_time + SIFS;
+            cout << dep_event_time << endl;
             // TODO: Create a departure event -> actually begins transmission 
-            // TODO: What is the event time? time transmission ends + SIFS delay and sends the ACK packet
-                // event_time = current_time + transmission_time + SIFS
             // TODO do we need to reset backoff to -1?           
-            // TODO: we need a destination host to send the ack packet             
             // TODO: for ack frame, create an arrival event and discard?  
             // TODO: ACK FRAME size
+            // TODO: ACK ARRIVAL IS PROB DIFFERENT LENGTH
         } else {
             double next_event_time = current_time + SENSE;
             // cout << next_event_time << endl;
@@ -245,7 +269,8 @@ void initialize() {
         hosts[i]->backoff = -1;
         // TODO: INIT ACK
         double first_arrival_time = neg_exp_time(ARRIVAL_RATE) + current_time;
-        create_arrival(first_arrival_time, hosts[i]);
+        create_arrival(first_arrival_time, hosts[i]); // not ack frame
+        generate_dest(hosts, i);
     }
     
 }
@@ -256,6 +281,7 @@ int main() {
     initialize();
 
     for (int i = 0; i < 10; ++i) {
+        cout << "i " << i << endl;
         if (GELsize == 0) {
             break;
         }
