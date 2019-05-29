@@ -209,7 +209,12 @@ void create_departure(double ev_time, Event* prev_ev) {
 void process_arrival_event(Event* curr_ev) {
     cout << "Process arrival event" << endl;
     current_time = curr_ev->event_time;
-    // TODO: if arrival event is ACK, make channel idle
+
+    if (curr_ev->fr->is_ack) {
+        cout << "Ack frame" << endl;
+        channel_idle = true;
+        return;
+    }
 
     // Create another arrival event for the host
     double next_arrival_time = current_time + neg_exp_time(ARRIVAL_RATE);
@@ -284,7 +289,7 @@ int main() {
 
     initialize();
 
-    for (int i = 0; i < 9; ++i) {
+    for (int i = 0; i < 10; ++i) {
         cout << "**i " << i << endl;
         if (GELsize == 0) {
             break;
