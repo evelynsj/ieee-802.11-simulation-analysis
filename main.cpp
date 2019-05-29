@@ -79,19 +79,10 @@ void generate_dest(Host* hosts[], int i) {
 
     do {
         dest = rand() % NUM_HOSTS;
-    } while (dest != i);
+    } while (dest == i);
 
     GELhead->fr->dest = hosts[dest];
 
-
-    // for (int i = 0; i < NUM_HOSTS; ++i) {
-    //     // cout << "generate dest" << endl;
-    //     do {
-    //         dest = rand() % NUM_HOSTS;
-    //     } while (dest == i);
-    //     cout << dest << endl;
-    //     hosts[i]->fr->dest = 
-    // }
 }
 
 int generate_frame_len() {
