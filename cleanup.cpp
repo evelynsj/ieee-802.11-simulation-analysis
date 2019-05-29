@@ -69,5 +69,12 @@ int generate_frame_len() { // negative exponentially distributed random variable
     return round(len); // in bytes
 }
 
+double generate_transmission_time(double len) {
+    return (len * 8) / CHANNEL_CAP;
+}
+
 int main() {
+    cout << T << ARRIVAL_RATE << MAX_FRAME << ACK_FRAME << CHANNEL_CAP << SIFS << DIFS << SENSE << endl;
+    double fr_len = generate_frame_len();
+    cout << generate_transmission_time(fr_len) << endl;
 }
