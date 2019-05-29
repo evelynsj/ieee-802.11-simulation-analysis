@@ -38,7 +38,7 @@ int GELsize;
 /* TODO: global variables for processing */
 int NUM_HOSTS = 2; // variable
 int T = 5; // variable. TODO: figure out how much this is?
-double ARRIVAL_RATE = 0.1; // variable lambda
+double ARRIVAL_RATE = 0.9; // variable lambda
 double MAX_FRAME = 1544;
 double CHANNEL_CAP = 10000000; // 1 Mbps = 10^6 bits/sec 
 double SIFS = 0.00005;
@@ -74,6 +74,14 @@ double generate_backoff() {
 }
 
 void generate_dest(Host* hosts[]) {
+    int dest;
+    do {
+        dest = rand() % NUM_HOSTS;
+    } while (GELhead->fr->src == hosts[dest]);
+    GELhead->fr->dest = hosts[dest];
+}
+
+void generate_dest_init(Host* hosts[]) {
     int dest;
     int i = 0;
 
@@ -194,11 +202,14 @@ void create_backoff(double ev_time, Host* host, int backoff, Frame* frame) {
     insert(ev);
 }
 
-void process_arrival_event(Event* curr_ev) {
+void process_arrival_event(Event* curr_ev, Host* hosts[]) {
     cout << "process arrival event" << endl;
     current_time = curr_ev->event_time;
+    cout << current_time << endl;
     double next_event_time = current_time + neg_exp_time(ARRIVAL_RATE); // create next arrival for host that is not ack
+    cout << "Next event time is " << next_event_time << endl;
     create_arrival(next_event_time, curr_ev->host);
+    generate_dest(hosts);
 
     if (channel_idle) {
         // cout << "Channel is idle" << endl;
@@ -215,7 +226,7 @@ void process_arrival_event(Event* curr_ev) {
 void process_backoff_event(Event* curr_ev) {
     cout << "process backoff event" << endl;
     current_time = curr_ev->event_time;
-    // cout << current_time << endl;
+    cout << current_time << endl;
     // Sense the channel
     if (channel_idle) {
         int decrease_backoff = curr_ev->host->backoff - 1;
@@ -225,7 +236,7 @@ void process_backoff_event(Event* curr_ev) {
             // cout << curr_ev->event_time << endl;
             double transmission_time = generate_transmission_time(curr_ev->fr->r);
             double dep_event_time = current_time + transmission_time + SIFS;
-            cout << dep_event_time << endl;
+            cout << "Departure event time " << dep_event_time << endl;
             // TODO: src and dest is probably wrong ;(
             // TODO: Create a departure event -> actually begins transmission 
             // TODO do we need to reset backoff to -1?           
@@ -241,7 +252,7 @@ void process_backoff_event(Event* curr_ev) {
     // TODO: IF CHANNEL IS BUSY
 }
 
-void initialize() {
+void initialize(Host* hosts[]) {
 
     /* Initialize processing variables */
     current_time = 0.0;
@@ -259,7 +270,6 @@ void initialize() {
     GELhead = nullptr;
     GELtail = nullptr;
     GELsize = 0;
-    Host *hosts[NUM_HOSTS];
 
     for (int i = 0; i < NUM_HOSTS; ++i) {
         hosts[i] = new Host;
@@ -268,33 +278,36 @@ void initialize() {
         create_arrival(first_arrival_time, hosts[i]); // not ack frame
     }
 
-    generate_dest(hosts);
+    generate_dest_init(hosts);
     
 }
 
 int main() {
+    Host *hosts[NUM_HOSTS];
     cout << fixed << endl;
     cout << setprecision(5);
-    initialize();
-    iterate();
+    initialize(hosts);
+    // iterate();
 
-    // for (int i = 0; i < 10; ++i) {
-    //     cout << "i " << i << endl;
-    //     if (GELsize == 0) {
-    //         break;
-    //     }
-    //     // 1. get first event from GEL
-    //     Event *ev = GELhead; 
-    //     delete_head(); // delete front
+    for (int i = 0; i < 10; ++i) {
+        cout << "** i " << i << endl;
+        if (GELsize == 0) {
+            break;
+        }
+        // 1. get first event from GEL
+        Event *ev = GELhead; 
+        delete_head(); // delete front
 
-    //     // 2. if the event is an arrival event then process-arrival-event
-    //     if (ev->type == Event::arrival) {
-    //         process_arrival_event(ev);
-    //     } else if (ev->type == Event::backoff) { // 3. if the event is a backoff event then process-backoff-event
-    //         process_backoff_event(ev);
-    //     }
+        // 2. if the event is an arrival event then process-arrival-event
+        if (ev->type == Event::arrival) {
+            process_arrival_event(ev, hosts);
+        } else if (ev->type == Event::backoff) { // 3. if the event is a backoff event then process-backoff-event
+            process_backoff_event(ev);
+        }
+
+        // iterate();
         
-    //     // TODO: 4. Otherwise, it must be a departure event and hence process-service-completion
-    // }
+        // TODO: 4. Otherwise, it must be a departure event and hence process-service-completion
+    }
 
 }
