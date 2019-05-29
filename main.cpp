@@ -37,7 +37,8 @@ int GELsize;
 int NUM_HOSTS = 1; // variable
 int T = 5; // variable. TODO: figure out how much this is?
 double ARRIVAL_RATE = 0.01; // variable lambda
-double MAX_FRAME = 1544; 
+double MAX_FRAME = 1544;
+double CHANNEL_CAP = 10000000; // 1 Mbps = 106 bits/sec 
 double SIFS = 0.00005;
 double DIFS = 0.0001;
 double SENSE = 0.00001;
@@ -78,6 +79,11 @@ int generate_frame_len() {
     }
 
     return round(len);
+}
+
+double generate_transmission_time(double len) {
+    cout << len << endl;
+    return (len * 8) / CHANNEL_CAP;
 }
 
 void iterate() {
@@ -196,15 +202,15 @@ void process_backoff_event(Event* curr_ev) {
         // TODO: case if counter = 0
         if (decrease_backoff == 0) {
             cout << "backoff is 0" << endl;
-            cout << curr_ev->event_time << endl; 
-            // TODO: We need to get the data frame length
-            generate_frame_len();
+            // cout << curr_ev->event_time << endl;
+            double transmission_time = generate_transmission_time(curr_ev->fr->r);
             // TODO: Create a departure event -> actually begins transmission 
             // TODO: What is the event time? time transmission ends + SIFS delay and sends the ACK packet
                 // event_time = current_time + transmission_time + SIFS
             // TODO do we need to reset backoff to -1?           
             // TODO: we need a destination host to send the ack packet             
-            // TODO: for ack frame, create an arrival event and discard?                               
+            // TODO: for ack frame, create an arrival event and discard?  
+            // TODO: ACK FRAME size
         } else {
             double next_event_time = current_time + SENSE;
             // cout << next_event_time << endl;
