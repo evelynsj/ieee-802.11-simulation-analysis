@@ -231,7 +231,9 @@ void process_backoff_event(Event* curr_ev) {
     if (channel_idle) {
         int decrement_backoff = hosts[curr_ev->src]->backoff - 1;
         if (decrement_backoff == 0) {
-            // TODO: backoff is 0, create departure event (start transmission) and make channel busy
+            double dep_event_time = current_time + curr_ev->fr->transmission_time + SIFS;
+            create_departure(dep_event_time, curr_ev);
+            channel_idle = false; // begin transmission
         } else { // Decrement counter and sense channel again
             double next_backoff_time = current_time + SENSE;
             create_backoff(next_backoff_time, curr_ev, decrement_backoff);
@@ -274,7 +276,8 @@ int main() {
 
     initialize();
 
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < 8; ++i) {
+        cout << "**i " << i << endl;
         if (GELsize == 0) {
             break;
         }
