@@ -173,5 +173,21 @@ void create_arrival(double ev_time, int src, int dest, int len, double trans_tim
     insert(ev);
 }
 
+void create_backoff(double ev_time, Event* prev_ev, int backoff) {
+    Event* ev = new Event;
+    ev->fr = new Frame;
+
+    ev->event_time = ev_time;
+    ev->type = Event::backoff;
+    ev->src = prev_ev->src;
+    ev->dest = prev_ev->dest;
+
+    ev->fr = prev_ev->fr;
+
+    hosts[ev->src]->backoff = backoff;
+
+    insert(ev);
+}
+
 int main() {
 }
