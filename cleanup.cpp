@@ -216,12 +216,28 @@ void process_arrival_event(Event* curr_ev) {
     double next_arrival_len = generate_frame_len();
     create_arrival(next_arrival_time, curr_ev->src, generate_dest(curr_ev->src), next_arrival_len, generate_transmission_time(next_arrival_len), false);
 
-    // If channel is idle, create a backoff event
-    if (channel_idle) {
+    if (channel_idle) { // Since channel is not busy, go to backoff procedure right away
         double backoff_event_time = current_time + DIFS;
         create_backoff(backoff_event_time, curr_ev, generate_backoff());
     } else {
         // TODO: if channel is busy, create another arrival event
+    }
+}
+
+void process_backoff_event(Event* curr_ev) {
+    cout << "Process backoff event" << endl;
+    current_time = curr_ev->event_time; 
+
+    if (channel_idle) {
+        int decrement_backoff = hosts[curr_ev->src]->backoff - 1;
+        if (decrement_backoff == 0) {
+            // TODO: backoff is 0, create departure event (start transmission) and make channel busy
+        } else { // Decrement counter and sense channel again
+            double next_backoff_time = current_time + SENSE;
+            create_backoff(next_backoff_time, curr_ev, decrement_backoff);
+        }
+    } else {
+        // TODO: if channel is busy, freeze counter and create another backoff event
     }
 }
 
@@ -258,7 +274,7 @@ int main() {
 
     initialize();
 
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 2; ++i) {
         if (GELsize == 0) {
             break;
         }
@@ -269,7 +285,7 @@ int main() {
         if (ev->type == Event::arrival) {
             process_arrival_event(ev);
         } else if (ev->type == Event::backoff) {
-            // TODO: process_backoff_event(ev);
+            process_backoff_event(ev);
         } else {
             // TODO: process_departure_event(ev);
         }
