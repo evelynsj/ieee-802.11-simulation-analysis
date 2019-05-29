@@ -38,7 +38,7 @@ int NUM_HOSTS = 1; // variable
 int T = 5; // variable. TODO: figure out how much this is?
 double ARRIVAL_RATE = 0.01; // variable lambda
 double MAX_FRAME = 1544;
-double CHANNEL_CAP = 10000000; // 1 Mbps = 106 bits/sec 
+double CHANNEL_CAP = 10000000; // 1 Mbps = 10^6 bits/sec 
 double SIFS = 0.00005;
 double DIFS = 0.0001;
 double SENSE = 0.00001;
