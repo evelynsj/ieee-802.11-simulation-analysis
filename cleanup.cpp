@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cmath>
 using namespace std;
 
 struct Frame {
@@ -52,6 +53,13 @@ Host* hosts[NUM_HOSTS];
 Event* GELhead;
 Event* GELtail;
 int GELsize;
+
+/* Functions */
+double neg_exp_time(double rate) {
+    double u;
+    u = drand48();
+    return ((-1/rate)*log(1-u));
+}
 
 int main() {
 }
