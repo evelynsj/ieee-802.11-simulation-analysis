@@ -111,5 +111,49 @@ void iterate() {
     cout << "************" << endl;
 }
 
+void delete_head() {
+    GELhead = GELhead->next;
+    GELsize--;
+}
+
+void insert(Event* event) { // insert to GEL
+    // if head is nullptr
+    if (GELhead == nullptr) {
+        GELhead = event;
+        GELhead->next = nullptr;
+        GELhead->prev = nullptr; 
+    }
+    else {
+        if (event->event_time < GELhead->event_time) { // insert in front of head
+            event->next = GELhead;
+            event->prev = nullptr;
+            GELhead->prev = event;
+            GELhead = event;
+        }
+        else {
+            Event *curr = GELhead;
+            Event *prev = nullptr;
+            while (curr) {
+                if (event->event_time < curr->event_time) { // Insert in the middle
+                    prev = curr->prev;
+                    prev->next = event;
+                    event->prev = prev;
+                    event->next = curr;
+                    curr->prev = event;
+                    break;
+                }
+                if (curr->next == nullptr && event->event_time > curr->event_time) { // Insert at the end
+                    curr->next = event;
+                    event->prev = curr;
+                    event->next = nullptr;
+                    break;
+                }
+                curr = curr->next;
+            }
+        }
+    }
+    GELsize++;
+}
+
 int main() {
 }
