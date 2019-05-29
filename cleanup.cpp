@@ -189,5 +189,21 @@ void create_backoff(double ev_time, Event* prev_ev, int backoff) {
     insert(ev);
 }
 
+void create_departure(double ev_time, Event* prev_ev) {
+    Event *ev = new Event;
+    ev->fr = new Frame;
+
+    ev->event_time = ev_time;
+    ev->type = Event::departure;
+    ev->src = prev_ev->src;
+    ev->dest = prev_ev->dest;
+
+    ev->fr = prev_ev->fr;
+
+    insert(ev);
+
+    // TODO: set backoff to -1?
+}
+
 int main() {
 }
