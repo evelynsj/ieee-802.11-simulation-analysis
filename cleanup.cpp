@@ -61,5 +61,13 @@ double neg_exp_time(double rate) {
     return ((-1/rate)*log(1-u));
 }
 
+int generate_frame_len() { // negative exponentially distributed random variable in range 0 < r <= 1544
+    double len = neg_exp_time(1) * MAX_FRAME; // multiplied by MAX_FRAME to scale 
+    if (len > MAX_FRAME) {
+        return MAX_FRAME;
+    }
+    return round(len); // in bytes
+}
+
 int main() {
 }
