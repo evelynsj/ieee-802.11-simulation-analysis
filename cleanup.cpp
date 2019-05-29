@@ -31,9 +31,9 @@ double current_time;
 bool channel_idle;
 
 /* Constant variables for processing */
-const int NUM_HOSTS = 3;
-const int T = 5;
-const double ARRIVAL_RATE = 50; // lambda
+const int NUM_HOSTS = 7;
+const int T = 10;
+const double ARRIVAL_RATE = 100; // lambda
 const double MAX_FRAME = 1544;
 const double ACK_FRAME = 64;
 const double CHANNEL_CAP = 10000000; // 1 Mbps = 10^6 bits/sec 
@@ -245,9 +245,10 @@ void process_backoff_event(Event* curr_ev) {
             double next_backoff_time = current_time + SENSE;
             create_backoff(next_backoff_time, curr_ev, decrement_backoff);
         }
-    } else {
+    } else { // channel is busy, freeze counter and sense again
         cout << "CHANNEL BUSY FOR BACKOFF" << endl;
-        // TODO: if channel is busy, freeze counter and create another backoff event
+        double next_backoff_time = current_time + SENSE; 
+        create_backoff(next_backoff_time, curr_ev, hosts[curr_ev->src]->backoff);
     }
 }
 
@@ -291,7 +292,7 @@ int main() {
 
     initialize();
 
-    for (int i = 0; i < 122; ++i) {
+    for (int i = 0; i < 100; ++i) {
         cout << "**i " << i << endl;
         if (GELsize == 0) {
             break;
