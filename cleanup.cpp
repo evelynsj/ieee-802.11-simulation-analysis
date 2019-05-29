@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cmath>
+#include <random>
 using namespace std;
 
 struct Frame {
@@ -73,8 +74,13 @@ double generate_transmission_time(double len) {
     return (len * 8) / CHANNEL_CAP;
 }
 
+int generate_backoff() {
+    static default_random_engine generator;
+    uniform_real_distribution<double> distribution(1,T);
+
+    double dist = distribution(generator) * T; // generate uniform random variable between (0,1) and multiply by T
+    return round(dist);
+}
+
 int main() {
-    cout << T << ARRIVAL_RATE << MAX_FRAME << ACK_FRAME << CHANNEL_CAP << SIFS << DIFS << SENSE << endl;
-    double fr_len = generate_frame_len();
-    cout << generate_transmission_time(fr_len) << endl;
 }
