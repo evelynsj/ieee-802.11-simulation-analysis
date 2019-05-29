@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <cmath>
 #include <random>
 using namespace std;
@@ -205,6 +206,25 @@ void create_departure(double ev_time, Event* prev_ev) {
     // TODO: set backoff to -1?
 }
 
+void process_arrival_event(Event* curr_ev) {
+    cout << "Process arrival event" << endl;
+    current_time = curr_ev->event_time;
+    // TODO: if arrival event is ACK, make channel idle
+
+    // Create another arrival event for the host
+    double next_arrival_time = current_time + neg_exp_time(ARRIVAL_RATE);
+    double next_arrival_len = generate_frame_len();
+    create_arrival(next_arrival_time, curr_ev->src, generate_dest(curr_ev->src), next_arrival_len, generate_transmission_time(next_arrival_len), false);
+
+    // If channel is idle, create a backoff event
+    if (channel_idle) {
+        double backoff_event_time = current_time + DIFS;
+        create_backoff(backoff_event_time, curr_ev, generate_backoff());
+    } else {
+        // TODO: if channel is busy, create another arrival event
+    }
+}
+
 void initialize() {
     /* Initialize global variables */
     current_time = 0.0;
@@ -232,5 +252,27 @@ void initialize() {
 }
 
 int main() {
+    cout << T << ARRIVAL_RATE << MAX_FRAME << ACK_FRAME << CHANNEL_CAP << SIFS << DIFS << SENSE << endl;
+    cout << fixed << endl;
+    cout << setprecision(5);
+
     initialize();
+
+    for (int i = 0; i < 1; ++i) {
+        if (GELsize == 0) {
+            break;
+        }
+
+        Event *ev = GELhead; // Get first event from GEL
+        delete_head(); // delete front
+
+        if (ev->type == Event::arrival) {
+            process_arrival_event(ev);
+        } else if (ev->type == Event::backoff) {
+            // TODO: process_backoff_event(ev);
+        } else {
+            // TODO: process_departure_event(ev);
+        }
+    }
+    
 }
