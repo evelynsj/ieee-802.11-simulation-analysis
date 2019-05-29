@@ -91,5 +91,25 @@ int generate_dest(int i) {
     return dest;
 }
 
+void iterate() {
+    cout << "***********" << endl;
+    cout << "start iterating" << endl;
+    cout << "GELsize is " << GELsize << endl;
+    Event *curr = GELhead;
+    while (curr != nullptr) {
+        if (curr->type == Event::arrival) {
+            cout << "Arrival ";
+        } else if (curr->type == Event::departure) {
+            cout << "Departure ";
+        } else {
+            cout << "Backoff ";
+        }
+        cout << curr->event_time << endl;
+        curr = curr->next;
+    }
+    cout << "done iterating" << endl;
+    cout << "************" << endl;
+}
+
 int main() {
 }
