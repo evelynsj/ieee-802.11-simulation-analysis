@@ -82,5 +82,14 @@ int generate_backoff() {
     return round(dist);
 }
 
+int generate_dest(int i) {
+    int dest;
+    do {
+        dest = rand() % NUM_HOSTS;
+    } while (i == dest);
+
+    return dest;
+}
+
 int main() {
 }
