@@ -33,7 +33,7 @@ bool channel_idle;
 /* Constant variables for processing */
 const int NUM_HOSTS = 3;
 const int T = 5;
-const double ARRIVAL_RATE = 10; // lambda
+const double ARRIVAL_RATE = 50; // lambda
 const double MAX_FRAME = 1544;
 const double ACK_FRAME = 64;
 const double CHANNEL_CAP = 10000000; // 1 Mbps = 10^6 bits/sec 
@@ -224,10 +224,10 @@ void process_arrival_event(Event* curr_ev) {
         double next_arrival_len = generate_frame_len();
         create_arrival(next_arrival_time, curr_ev->src, generate_dest(curr_ev->src), next_arrival_len, generate_transmission_time(next_arrival_len), false);
 
-    } else {
+    } else { // channel is busy, sense it again
+        cout << "CHANNEL BUSY FOR ARRIVAL" << endl;
         double next_arrival_time = current_time + SENSE;
         create_arrival(next_arrival_time, curr_ev->src, curr_ev->dest, curr_ev->fr->r, curr_ev->fr->transmission_time, curr_ev->fr->is_ack);
-        iterate();
     }
 }
 
@@ -254,9 +254,9 @@ void process_backoff_event(Event* curr_ev) {
 void process_departure_event(Event* curr_ev) {
     cout << "Process departure event" << endl;
     current_time = curr_ev->event_time;
-    double ack_trans_time = generate_transmission_time(MAX_FRAME);
+    double ack_trans_time = generate_transmission_time(ACK_FRAME);
     double ack_arrival_time = current_time + ack_trans_time;
-    create_arrival(ack_arrival_time, curr_ev->dest, curr_ev->src, MAX_FRAME, ack_trans_time, true);
+    create_arrival(ack_arrival_time, curr_ev->dest, curr_ev->src, ACK_FRAME, ack_trans_time, true);
 }
 
 void initialize() {
@@ -286,7 +286,6 @@ void initialize() {
 }
 
 int main() {
-    cout << T << ARRIVAL_RATE << MAX_FRAME << ACK_FRAME << CHANNEL_CAP << SIFS << DIFS << SENSE << endl;
     cout << fixed << endl;
     cout << setprecision(5);
 
