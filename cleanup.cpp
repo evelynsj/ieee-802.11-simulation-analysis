@@ -31,9 +31,9 @@ double current_time;
 bool channel_idle;
 
 /* Constant variables for processing */
-const int NUM_HOSTS = 2;
+const int NUM_HOSTS = 3;
 const int T = 5;
-const double ARRIVAL_RATE = 0.01; // lambda
+const double ARRIVAL_RATE = 10; // lambda
 const double MAX_FRAME = 1544;
 const double ACK_FRAME = 64;
 const double CHANNEL_CAP = 10000000; // 1 Mbps = 10^6 bits/sec 
@@ -215,17 +215,19 @@ void process_arrival_event(Event* curr_ev) {
         channel_idle = true;
         return;
     }
-
-    // Create another arrival event for the host
-    double next_arrival_time = current_time + neg_exp_time(ARRIVAL_RATE);
-    double next_arrival_len = generate_frame_len();
-    create_arrival(next_arrival_time, curr_ev->src, generate_dest(curr_ev->src), next_arrival_len, generate_transmission_time(next_arrival_len), false);
-
+    
     if (channel_idle) { // Since channel is not busy, go to backoff procedure right away
         double backoff_event_time = current_time + DIFS;
         create_backoff(backoff_event_time, curr_ev, generate_backoff());
+        // Create another arrival event for the host
+        double next_arrival_time = current_time + neg_exp_time(ARRIVAL_RATE);
+        double next_arrival_len = generate_frame_len();
+        create_arrival(next_arrival_time, curr_ev->src, generate_dest(curr_ev->src), next_arrival_len, generate_transmission_time(next_arrival_len), false);
+
     } else {
-        // TODO: if channel is busy, create another arrival event
+        double next_arrival_time = current_time + SENSE;
+        create_arrival(next_arrival_time, curr_ev->src, curr_ev->dest, curr_ev->fr->r, curr_ev->fr->transmission_time, curr_ev->fr->is_ack);
+        iterate();
     }
 }
 
@@ -244,6 +246,7 @@ void process_backoff_event(Event* curr_ev) {
             create_backoff(next_backoff_time, curr_ev, decrement_backoff);
         }
     } else {
+        cout << "CHANNEL BUSY FOR BACKOFF" << endl;
         // TODO: if channel is busy, freeze counter and create another backoff event
     }
 }
@@ -289,7 +292,7 @@ int main() {
 
     initialize();
 
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 122; ++i) {
         cout << "**i " << i << endl;
         if (GELsize == 0) {
             break;
