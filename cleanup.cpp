@@ -105,8 +105,8 @@ void iterate() {
             cout << "Backoff ";
         }
         cout << curr->event_time << endl;
-        cout << curr->src << endl;
-        cout << curr->dest << endl;
+        cout << "Src = " << curr->src << endl;
+        cout << "Dest = " << curr->dest << endl;
         curr = curr->next;
     }
     cout << "done iterating" << endl;
@@ -205,5 +205,32 @@ void create_departure(double ev_time, Event* prev_ev) {
     // TODO: set backoff to -1?
 }
 
+void initialize() {
+    /* Initialize global variables */
+    current_time = 0.0;
+    channel_idle = true;
+
+    /* Initialize statistical variables */
+    transmitted_bytes = 0.0;
+    total_time = 0.0;
+    total_delay = 0.0;
+    throughput = 0.0;
+    avg_network_delay = 0.0;
+
+    /* Initialize data structures */
+    GELhead = nullptr;
+    GELtail = nullptr;
+    GELsize = 0;
+
+    for (int i = 0; i < NUM_HOSTS; ++i) {
+        hosts[i] = new Host;
+        hosts[i]->backoff = -1;
+        double init_arrival_time = current_time + neg_exp_time(ARRIVAL_RATE);
+        double frame_len = generate_frame_len();
+        create_arrival(init_arrival_time, i, generate_dest(i), frame_len, generate_transmission_time(frame_len), false);
+    }
+}
+
 int main() {
+    initialize();
 }
