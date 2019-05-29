@@ -203,7 +203,7 @@ void create_departure(double ev_time, Event* prev_ev) {
 
     insert(ev);
 
-    // TODO: set backoff to -1?
+    // TODO: set backoff to -1? 
 }
 
 void process_arrival_event(Event* curr_ev) {
@@ -243,6 +243,14 @@ void process_backoff_event(Event* curr_ev) {
     }
 }
 
+void process_departure_event(Event* curr_ev) {
+    cout << "Process departure event" << endl;
+    current_time = curr_ev->event_time;
+    double ack_trans_time = generate_transmission_time(MAX_FRAME);
+    double ack_arrival_time = current_time + ack_trans_time;
+    create_arrival(ack_arrival_time, curr_ev->dest, curr_ev->src, MAX_FRAME, ack_trans_time, true);
+}
+
 void initialize() {
     /* Initialize global variables */
     current_time = 0.0;
@@ -276,7 +284,7 @@ int main() {
 
     initialize();
 
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < 9; ++i) {
         cout << "**i " << i << endl;
         if (GELsize == 0) {
             break;
@@ -290,7 +298,7 @@ int main() {
         } else if (ev->type == Event::backoff) {
             process_backoff_event(ev);
         } else {
-            // TODO: process_departure_event(ev);
+            process_departure_event(ev);
         }
     }
     
