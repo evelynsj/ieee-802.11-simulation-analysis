@@ -62,12 +62,12 @@ double neg_exp_time(double rate) {
     return ((-1/rate)*log(1-u));
 }
 
-int generate_frame_len() { // negative exponentially distributed random variable in range 0 < r <= 1544
+double generate_frame_len() { // negative exponentially distributed random variable in range 0 < r <= 1544
     double len = neg_exp_time(1) * MAX_FRAME; // multiplied by MAX_FRAME to scale 
     if (len > MAX_FRAME) {
         return MAX_FRAME;
     }
-    return round(len); // in bytes
+    return len; // in bytes
 }
 
 double generate_transmission_time(double len) {
@@ -105,6 +105,8 @@ void iterate() {
             cout << "Backoff ";
         }
         cout << curr->event_time << endl;
+        cout << curr->src << endl;
+        cout << curr->dest << endl;
         curr = curr->next;
     }
     cout << "done iterating" << endl;
@@ -153,6 +155,22 @@ void insert(Event* event) { // insert to GEL
         }
     }
     GELsize++;
+}
+
+void create_arrival(double ev_time, int src, int dest, int len, double trans_time, bool is_ack) {
+    Event* ev = new Event;
+    ev->fr = new Frame;
+
+    ev->event_time = ev_time;
+    ev->type = Event::arrival;
+    ev->src = src;
+    ev->dest = dest;
+
+    ev->fr->r = len;
+    ev->fr->transmission_time = trans_time;
+    ev->fr->is_ack = is_ack;
+
+    insert(ev);
 }
 
 int main() {
