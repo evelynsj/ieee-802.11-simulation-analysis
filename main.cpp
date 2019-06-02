@@ -1,114 +1,99 @@
 #include <iostream>
 #include <iomanip>
-#include <queue>
 #include <cmath>
 #include <random>
+#include <queue>
 using namespace std;
 
-struct Host;
+struct Event;
 
 struct Frame {
-    double r;
-    bool ack; // to indicate if frame is ack or not
-    Host* src;
-    Host* dest;
+    double r; // length of frame
+    double transmission_time; // transmission time of frame
+    double queue_time;
+    bool is_ack;
+};
+
+struct Host {
+    queue <Event*> buffer;
+    int backoff;
 };
 
 struct Event {
     double event_time;
-    double service_time; // TODO: might not need
     enum event_type { arrival, departure, backoff };
     event_type type;
+    int src; 
+    int dest;
     Event* next;
     Event* prev;
     Frame* fr;
-    Host* host; // TODO: needed? or just need the number? if there's already src, does host matter?
 };
 
-struct Host {
-    queue <Event*> buffer; // TODO: when do we use this?
-    int backoff;
-};
+/* Global variables for processing */
+double current_time;
+bool channel_idle;
 
-// TODO: might not need
+/* Constant variables for processing */
+const int NUM_HOSTS = 10;
+const int T = 40;
+const double ARRIVAL_RATE = 0.01; // lambda
+const double MAX_FRAME = 1544;
+const double ACK_FRAME = 64;
+const double CHANNEL_CAP = 10000000; // 1 Mbps = 10^6 bits/sec 
+const double SIFS = 0.00005;
+const double DIFS = 0.0001;
+const double SENSE = 0.00001;
+
+/* Global variables for statistics */
+double transmitted_bytes;
+double total_time;
+double total_delay;
+
+/* Output statistics */
+double throughput;
+double avg_network_delay;
+
+/* Data structures */
+Host* hosts[NUM_HOSTS];
 Event* GELhead;
 Event* GELtail;
 int GELsize;
 
-/* TODO: global variables for processing */
-int NUM_HOSTS = 50; // variable
-int T = 400; // variable. TODO: figure out how much this is?
-double ARRIVAL_RATE = 0.01; // variable lambda
-double MAX_FRAME = 1544;
-double ACK_FRAME = 64;
-double CHANNEL_CAP = 10000000; // 1 Mbps = 10^6 bits/sec 
-double SIFS = 0.00005;
-double DIFS = 0.0001;
-double SENSE = 0.00001;
-double current_time;
-double service_rate; // mu. TODO: is this needed?
-bool channel_idle;
-
-/* global variables for statistics */
-double transmitted_bytes;
-double total_time;
-double total_delay; // TODO: figure out how to do this
-
-/* TODO: output statistics */
-double throughput;
-double avg_network_delay;
-
+/* Functions */
 double neg_exp_time(double rate) {
     double u;
     u = drand48();
     return ((-1/rate)*log(1-u));
 }
 
-double generate_backoff() {
-    static default_random_engine generator;
-    uniform_real_distribution<double> distribution(1,T);
-
-    // generate uniform random variable between (0,1) and multiply by T
-    double dist = distribution(generator) * T;
-
-    return round(dist);
-}
-
-void generate_dest(Host* hosts[]) {
-    int dest;
-    do {
-        dest = rand() % NUM_HOSTS;
-    } while (GELhead->fr->src == hosts[dest]);
-    GELhead->fr->dest = hosts[dest];
-}
-
-void generate_dest_init(Host* hosts[]) {
-    int dest;
-    int i = 0;
-
-    Event *curr = GELhead;
-    while (curr != nullptr) {
-        do {
-            dest = rand() % NUM_HOSTS;
-        } while (curr->fr->src == hosts[dest]);
-        curr->fr->dest = hosts[dest];
-        curr = curr->next;
-        i++;
-    }
-}
-
-int generate_frame_len() {
-    // negative exponentially distributed random variable in range 0 < r <= 1544
+double generate_frame_len() { // negative exponentially distributed random variable in range 0 < r <= 1544
     double len = neg_exp_time(1) * MAX_FRAME; // multiplied by MAX_FRAME to scale 
     if (len > MAX_FRAME) {
         return MAX_FRAME;
     }
-
-    return round(len);
+    return len; // in bytes
 }
 
 double generate_transmission_time(double len) {
     return (len * 8) / CHANNEL_CAP;
+}
+
+int generate_backoff() {
+    static default_random_engine generator;
+    uniform_real_distribution<double> distribution(1,T);
+
+    double dist = distribution(generator) * T; // generate uniform random variable between (0,1) and multiply by T
+    return round(dist);
+}
+
+int generate_dest(int i) {
+    int dest;
+    do {
+        dest = rand() % NUM_HOSTS;
+    } while (i == dest);
+
+    return dest;
 }
 
 void iterate() {
@@ -125,8 +110,8 @@ void iterate() {
             cout << "Backoff ";
         }
         cout << curr->event_time << endl;
-        cout << curr->fr->src << endl;
-        cout << curr->fr->dest << endl;
+        cout << "Src = " << curr->src << endl;
+        cout << "Dest = " << curr->dest << endl;
         curr = curr->next;
     }
     cout << "done iterating" << endl;
@@ -177,128 +162,138 @@ void insert(Event* event) { // insert to GEL
     GELsize++;
 }
 
-void create_arrival(double ev_time, Host* host) {
-    // cout << "Create arrival" << endl;
-    Event *ev = new Event;
+void create_arrival(double ev_time, int src, int dest, int len, double trans_time, bool is_ack) {
+    Event* ev = new Event;
+    ev->fr = new Frame;
+
     ev->event_time = ev_time;
     ev->type = Event::arrival;
-    ev->host = host;
-    // TODO: NEED SERVICE TIME??
-    ev->fr = new Frame;
-    ev->fr->r = generate_frame_len();
-    ev->fr->ack = false;
-    ev->fr->src = host;
+    ev->src = src;
+    ev->dest = dest;
+
+    ev->fr->r = len;
+    ev->fr->transmission_time = trans_time;
+    ev->fr->is_ack = is_ack;
+    ev->fr->queue_time = 0.0;
+
     insert(ev);
 }
 
-void create_ack_arrival(double ev_time, Host* src, Host* dest) {
-    Event *ev = new Event;
-    ev->event_time = ev_time;
-    ev->type = Event::arrival;
-    ev->host = src;
+void create_backoff(double ev_time, Event* prev_ev, int backoff) {
+    Event* ev = new Event;
     ev->fr = new Frame;
-    ev->fr->r = ACK_FRAME;
-    ev->fr->ack = true;
-    ev->fr->src = src;
-    ev->fr->dest = dest;
-    insert(ev);
-}
 
-void create_backoff(double ev_time, Host* host, int backoff, Frame* frame) {
-    // cout << "Create backoff" << endl;
-    Event *ev = new Event;
     ev->event_time = ev_time;
     ev->type = Event::backoff;
-    ev->host = host;
-    // TODO: NEED SERVICE TIME??
-    ev->host->backoff = backoff;
-    ev->fr = new Frame;
-    ev->fr = frame;
+    ev->src = prev_ev->src;
+    ev->dest = prev_ev->dest;
+
+    ev->fr = prev_ev->fr;
+
+    hosts[ev->src]->backoff = backoff;
+
     insert(ev);
 }
 
-void create_departure(double ev_time, Host* host, Frame* frame) {
-    Event* ev = new Event;
+void create_departure(double ev_time, Event* prev_ev) {
+    Event *ev = new Event;
+    ev->fr = new Frame;
+
     ev->event_time = ev_time;
     ev->type = Event::departure;
-    ev->host = host;
-    ev->fr = new Frame;
-    ev->fr = frame;
+    ev->src = prev_ev->src;
+    ev->dest = prev_ev->dest;
+
+    ev->fr = prev_ev->fr;
+
     insert(ev);
+
 }
 
-void process_arrival_event(Event* curr_ev, Host* hosts[]) {
-    cout << "process arrival event" << endl;
-    if (curr_ev->fr->ack) {
-        cout << "frame is ack" << endl;
+void process_arrival_event(Event* curr_ev) {
+    // cout << "Process arrival event" << endl;
+    current_time = curr_ev->event_time;
+
+    if (curr_ev->fr->is_ack) {
+        // cout << "Ack frame" << endl;
         channel_idle = true;
+        if (!hosts[curr_ev->src]->buffer.empty()) { // if buffer has frames to send, create backoff event
+            double backoff_time = current_time + SENSE;
+            Event* prev_ev = hosts[curr_ev->src]->buffer.front();
+            total_delay += (current_time - prev_ev->fr->queue_time);
+            hosts[curr_ev->src]->buffer.pop();
+            create_backoff(backoff_time, prev_ev, generate_backoff());
+        } else {
+            hosts[curr_ev->src]->backoff = -1; // otherwise set backoff to -1
+        }
         return;
     }
-    current_time = curr_ev->event_time;
-    cout << current_time << endl;
-    double next_event_time = current_time + neg_exp_time(ARRIVAL_RATE); // create next arrival for host that is not ack
-    cout << "Next event time is " << next_event_time << endl;
-    create_arrival(next_event_time, curr_ev->host);
-    generate_dest(hosts);
-
-    if (channel_idle) {
-        // cout << "Channel is idle" << endl;
-        // Since channel is not busy, can go to backoff procedure right away
-        double backoff = generate_backoff(); // create a backoff event
+    
+    if (channel_idle) { // Since channel is not busy, go to backoff procedure right away
+        if (hosts[curr_ev->src]->backoff >= 0) { // if backoff procedure is already underway for a host, put frame in buffer
+            hosts[curr_ev->src]->buffer.push(curr_ev);
+            curr_ev->fr->queue_time = current_time;
+            return;
+        }
         double backoff_event_time = current_time + DIFS;
-        create_backoff(backoff_event_time, curr_ev->host, backoff, curr_ev->fr);
-        // TODO MIGHT NEED TO INSERT TO BUFFER HERE
-    } else {
-        // TODO IF CHANNEL IS BUSY
-        cout << "CHANNEL IS BUSY" << endl;
+        create_backoff(backoff_event_time, curr_ev, generate_backoff());
+        // Create another arrival event for the host
+        double next_arrival_time = current_time + neg_exp_time(ARRIVAL_RATE);
+        double next_arrival_len = generate_frame_len();
+        create_arrival(next_arrival_time, curr_ev->src, generate_dest(curr_ev->src), next_arrival_len, generate_transmission_time(next_arrival_len), false);
+
+    } else { // channel is busy, sense it again
+        // cout << "CHANNEL BUSY FOR ARRIVAL" << endl;
+        double next_arrival_time = current_time + SENSE;
+        create_arrival(next_arrival_time, curr_ev->src, curr_ev->dest, curr_ev->fr->r, curr_ev->fr->transmission_time, curr_ev->fr->is_ack);
     }
 }
 
 void process_backoff_event(Event* curr_ev) {
-    cout << "process backoff event" << endl;
-    current_time = curr_ev->event_time;
-    cout << current_time << endl;
-    // Sense the channel
+    // cout << "Process backoff event" << endl;
+    current_time = curr_ev->event_time; 
+
     if (channel_idle) {
-        int decrease_backoff = curr_ev->host->backoff - 1;
-        // TODO: case if counter = 0
-        if (decrease_backoff == 0) {
-            cout << "backoff is 0" << endl;
-            // cout << curr_ev->event_time << endl;
-            double transmission_time = generate_transmission_time(curr_ev->fr->r);
-            double dep_event_time = current_time + transmission_time + SIFS;
-            cout << "Departure event time " << dep_event_time << endl;
-            create_departure(dep_event_time, curr_ev->host, curr_ev->fr);
-            channel_idle = false;
-            // TODO: src and dest is probably wrong ;(
-            // TODO do we need to reset backoff to -1?           
-            // TODO: for ack frame, create an arrival event and discard?  
-            // TODO: ACK ARRIVAL IS PROB DIFFERENT LENGTH
-        } else {
-            double next_event_time = current_time + SENSE;
-            // cout << next_event_time << endl;
-            create_backoff(next_event_time, curr_ev->host, decrease_backoff, curr_ev->fr);
+        int decrement_backoff = hosts[curr_ev->src]->backoff - 1;
+        if (decrement_backoff == 0) {
+            double dep_event_time = current_time + curr_ev->fr->transmission_time + SIFS;
+            total_delay += curr_ev->fr->transmission_time + SIFS;
+            create_departure(dep_event_time, curr_ev);
+            channel_idle = false; // begin transmission
+        } else { // Decrement counter and sense channel again
+            double next_backoff_time = current_time + SENSE;
+            create_backoff(next_backoff_time, curr_ev, decrement_backoff);
         }
-    } else {
-        // TODO: IF CHANNEL IS BUSY
-        cout << "CHANNEL IS BUSY" << endl;
-        
+    } else { // channel is busy, freeze counter and sense again
+        // cout << "CHANNEL BUSY FOR BACKOFF" << endl;
+        double next_backoff_time = current_time + SENSE; 
+        create_backoff(next_backoff_time, curr_ev, hosts[curr_ev->src]->backoff);
     }
-    
 }
 
 void process_departure_event(Event* curr_ev) {
-    cout << "process departure event" << endl;
+    // cout << "Process departure event" << endl;
     current_time = curr_ev->event_time;
-    double ack_transmission_time = current_time + ((ACK_FRAME * 8) / CHANNEL_CAP);
-    cout << current_time << endl;
-    cout << ack_transmission_time << endl;
-    create_ack_arrival(ack_transmission_time, curr_ev->fr->dest, curr_ev->fr->src);
+    transmitted_bytes += curr_ev->fr->r;
+    double ack_trans_time = generate_transmission_time(ACK_FRAME);
+    total_delay += ack_trans_time;
+    double ack_arrival_time = current_time + ack_trans_time;
+    create_arrival(ack_arrival_time, curr_ev->dest, curr_ev->src, ACK_FRAME, ack_trans_time, true);
 }
 
-void initialize(Host* hosts[]) {
+void compute_statistics() {
+    total_time = current_time;
 
-    /* Initialize processing variables */
+    throughput = transmitted_bytes / total_time;
+    cout << "Throughput: " << throughput << endl;    
+
+    avg_network_delay = total_delay / throughput;
+    cout << "Average network delay: " << avg_network_delay << endl;
+
+}
+
+void initialize() {
+    /* Initialize global variables */
     current_time = 0.0;
     channel_idle = true;
 
@@ -310,7 +305,6 @@ void initialize(Host* hosts[]) {
     avg_network_delay = 0.0;
 
     /* Initialize data structures */
-    // TODO: Might not need GEL
     GELhead = nullptr;
     GELtail = nullptr;
     GELsize = 0;
@@ -318,42 +312,36 @@ void initialize(Host* hosts[]) {
     for (int i = 0; i < NUM_HOSTS; ++i) {
         hosts[i] = new Host;
         hosts[i]->backoff = -1;
-        double first_arrival_time = neg_exp_time(ARRIVAL_RATE) + current_time;
-        create_arrival(first_arrival_time, hosts[i]); // not ack frame
+        double init_arrival_time = current_time + neg_exp_time(ARRIVAL_RATE);
+        double frame_len = generate_frame_len();
+        create_arrival(init_arrival_time, i, generate_dest(i), frame_len, generate_transmission_time(frame_len), false);
     }
-
-    generate_dest_init(hosts);
-    
 }
 
 int main() {
-    Host *hosts[NUM_HOSTS];
     cout << fixed << endl;
     cout << setprecision(5);
-    initialize(hosts);
-    // iterate();
+
+    initialize();
 
     for (int i = 0; i < 100000; ++i) {
-        cout << "** i " << i << endl;
+        // cout << "**i " << i << endl;
         if (GELsize == 0) {
             break;
         }
-        // 1. get first event from GEL
-        Event *ev = GELhead; 
+
+        Event *ev = GELhead; // Get first event from GEL
         delete_head(); // delete front
 
-        // 2. if the event is an arrival event then process-arrival-event
         if (ev->type == Event::arrival) {
-            process_arrival_event(ev, hosts);
-        } else if (ev->type == Event::backoff) { // 3. if the event is a backoff event then process-backoff-event
+            process_arrival_event(ev);
+        } else if (ev->type == Event::backoff) {
             process_backoff_event(ev);
         } else {
             process_departure_event(ev);
         }
-
-        // iterate();
-        
-        // TODO: 4. Otherwise, it must be a departure event and hence process-service-completion
     }
 
+    compute_statistics();
+    
 }
