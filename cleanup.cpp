@@ -5,6 +5,8 @@
 #include <queue>
 using namespace std;
 
+struct Event;
+
 struct Frame {
     double r; // length of frame
     double transmission_time; // transmission time of frame
@@ -12,7 +14,7 @@ struct Frame {
 };
 
 struct Host {
-    queue <Frame*> buffer;
+    queue <Event*> buffer;
     int backoff;
 };
 
@@ -204,7 +206,6 @@ void create_departure(double ev_time, Event* prev_ev) {
 
     insert(ev);
 
-    // TODO: set backoff to -1? 
 }
 
 void process_arrival_event(Event* curr_ev) {
@@ -214,16 +215,22 @@ void process_arrival_event(Event* curr_ev) {
     if (curr_ev->fr->is_ack) {
         cout << "Ack frame" << endl;
         channel_idle = true;
+        if (!hosts[curr_ev->src]->buffer.empty()) { // if buffer has frames to send, create backoff event
+            double backoff_time = current_time + SENSE;
+            Event* prev_ev = hosts[curr_ev->src]->buffer.front();
+            hosts[curr_ev->src]->buffer.pop();
+            create_backoff(backoff_time, prev_ev, generate_backoff());
+        } else {
+            hosts[curr_ev->src]->backoff = -1; // otherwise set backoff to -1
+        }
         return;
-        // TODO: if buffer has frames to send
-            // Create backoff event
-            // Otherwise, set backoff to -1
     }
     
     if (channel_idle) { // Since channel is not busy, go to backoff procedure right away
-        // TODO: if backoff procedure is already underway
-            // if yes, put frame in buffer
-            // otherwise, create backoff event
+        if (hosts[curr_ev->src]->backoff >= 0) { // if backoff procedure is already underway for a host, put frame in buffer
+            hosts[curr_ev->src]->buffer.push(curr_ev);
+            return;
+        }
         double backoff_event_time = current_time + DIFS;
         create_backoff(backoff_event_time, curr_ev, generate_backoff());
         // Create another arrival event for the host
