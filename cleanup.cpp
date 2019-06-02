@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <cmath>
 #include <random>
+#include <queue>
 using namespace std;
 
 struct Frame {
@@ -11,7 +12,7 @@ struct Frame {
 };
 
 struct Host {
-    // TODO: queue<Event*> buffer - figure out what this is for :(
+    queue <Frame*> buffer;
     int backoff;
 };
 
@@ -214,9 +215,15 @@ void process_arrival_event(Event* curr_ev) {
         cout << "Ack frame" << endl;
         channel_idle = true;
         return;
+        // TODO: if buffer has frames to send
+            // Create backoff event
+            // Otherwise, set backoff to -1
     }
     
     if (channel_idle) { // Since channel is not busy, go to backoff procedure right away
+        // TODO: if backoff procedure is already underway
+            // if yes, put frame in buffer
+            // otherwise, create backoff event
         double backoff_event_time = current_time + DIFS;
         create_backoff(backoff_event_time, curr_ev, generate_backoff());
         // Create another arrival event for the host
@@ -292,7 +299,7 @@ int main() {
 
     initialize();
 
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 10; ++i) {
         cout << "**i " << i << endl;
         if (GELsize == 0) {
             break;
