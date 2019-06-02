@@ -10,6 +10,7 @@ struct Event;
 struct Frame {
     double r; // length of frame
     double transmission_time; // transmission time of frame
+    double queue_time;
     bool is_ack;
 };
 
@@ -34,9 +35,9 @@ double current_time;
 bool channel_idle;
 
 /* Constant variables for processing */
-const int NUM_HOSTS = 7;
-const int T = 10;
-const double ARRIVAL_RATE = 100; // lambda
+const int NUM_HOSTS = 10;
+const int T = 40;
+const double ARRIVAL_RATE = 0.01; // lambda
 const double MAX_FRAME = 1544;
 const double ACK_FRAME = 64;
 const double CHANNEL_CAP = 10000000; // 1 Mbps = 10^6 bits/sec 
@@ -173,6 +174,7 @@ void create_arrival(double ev_time, int src, int dest, int len, double trans_tim
     ev->fr->r = len;
     ev->fr->transmission_time = trans_time;
     ev->fr->is_ack = is_ack;
+    ev->fr->queue_time = 0.0;
 
     insert(ev);
 }
@@ -209,15 +211,16 @@ void create_departure(double ev_time, Event* prev_ev) {
 }
 
 void process_arrival_event(Event* curr_ev) {
-    cout << "Process arrival event" << endl;
+    // cout << "Process arrival event" << endl;
     current_time = curr_ev->event_time;
 
     if (curr_ev->fr->is_ack) {
-        cout << "Ack frame" << endl;
+        // cout << "Ack frame" << endl;
         channel_idle = true;
         if (!hosts[curr_ev->src]->buffer.empty()) { // if buffer has frames to send, create backoff event
             double backoff_time = current_time + SENSE;
             Event* prev_ev = hosts[curr_ev->src]->buffer.front();
+            total_delay += (current_time - prev_ev->fr->queue_time);
             hosts[curr_ev->src]->buffer.pop();
             create_backoff(backoff_time, prev_ev, generate_backoff());
         } else {
@@ -229,6 +232,7 @@ void process_arrival_event(Event* curr_ev) {
     if (channel_idle) { // Since channel is not busy, go to backoff procedure right away
         if (hosts[curr_ev->src]->backoff >= 0) { // if backoff procedure is already underway for a host, put frame in buffer
             hosts[curr_ev->src]->buffer.push(curr_ev);
+            curr_ev->fr->queue_time = current_time;
             return;
         }
         double backoff_event_time = current_time + DIFS;
@@ -239,20 +243,21 @@ void process_arrival_event(Event* curr_ev) {
         create_arrival(next_arrival_time, curr_ev->src, generate_dest(curr_ev->src), next_arrival_len, generate_transmission_time(next_arrival_len), false);
 
     } else { // channel is busy, sense it again
-        cout << "CHANNEL BUSY FOR ARRIVAL" << endl;
+        // cout << "CHANNEL BUSY FOR ARRIVAL" << endl;
         double next_arrival_time = current_time + SENSE;
         create_arrival(next_arrival_time, curr_ev->src, curr_ev->dest, curr_ev->fr->r, curr_ev->fr->transmission_time, curr_ev->fr->is_ack);
     }
 }
 
 void process_backoff_event(Event* curr_ev) {
-    cout << "Process backoff event" << endl;
+    // cout << "Process backoff event" << endl;
     current_time = curr_ev->event_time; 
 
     if (channel_idle) {
         int decrement_backoff = hosts[curr_ev->src]->backoff - 1;
         if (decrement_backoff == 0) {
             double dep_event_time = current_time + curr_ev->fr->transmission_time + SIFS;
+            total_delay += curr_ev->fr->transmission_time + SIFS;
             create_departure(dep_event_time, curr_ev);
             channel_idle = false; // begin transmission
         } else { // Decrement counter and sense channel again
@@ -260,18 +265,31 @@ void process_backoff_event(Event* curr_ev) {
             create_backoff(next_backoff_time, curr_ev, decrement_backoff);
         }
     } else { // channel is busy, freeze counter and sense again
-        cout << "CHANNEL BUSY FOR BACKOFF" << endl;
+        // cout << "CHANNEL BUSY FOR BACKOFF" << endl;
         double next_backoff_time = current_time + SENSE; 
         create_backoff(next_backoff_time, curr_ev, hosts[curr_ev->src]->backoff);
     }
 }
 
 void process_departure_event(Event* curr_ev) {
-    cout << "Process departure event" << endl;
+    // cout << "Process departure event" << endl;
     current_time = curr_ev->event_time;
+    transmitted_bytes += curr_ev->fr->r;
     double ack_trans_time = generate_transmission_time(ACK_FRAME);
+    total_delay += ack_trans_time;
     double ack_arrival_time = current_time + ack_trans_time;
     create_arrival(ack_arrival_time, curr_ev->dest, curr_ev->src, ACK_FRAME, ack_trans_time, true);
+}
+
+void compute_statistics() {
+    total_time = current_time;
+
+    throughput = transmitted_bytes / total_time;
+    cout << "Throughput: " << throughput << endl;    
+
+    avg_network_delay = total_delay / throughput;
+    cout << "Average network delay: " << avg_network_delay << endl;
+
 }
 
 void initialize() {
@@ -306,8 +324,8 @@ int main() {
 
     initialize();
 
-    for (int i = 0; i < 10; ++i) {
-        cout << "**i " << i << endl;
+    for (int i = 0; i < 100000; ++i) {
+        // cout << "**i " << i << endl;
         if (GELsize == 0) {
             break;
         }
@@ -323,5 +341,7 @@ int main() {
             process_departure_event(ev);
         }
     }
+
+    compute_statistics();
     
 }
