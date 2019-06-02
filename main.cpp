@@ -211,11 +211,9 @@ void create_departure(double ev_time, Event* prev_ev) {
 }
 
 void process_arrival_event(Event* curr_ev) {
-    // cout << "Process arrival event" << endl;
     current_time = curr_ev->event_time;
 
     if (curr_ev->fr->is_ack) {
-        // cout << "Ack frame" << endl;
         channel_idle = true;
         if (!hosts[curr_ev->src]->buffer.empty()) { // if buffer has frames to send, create backoff event
             double backoff_time = current_time + SENSE;
@@ -243,14 +241,12 @@ void process_arrival_event(Event* curr_ev) {
         create_arrival(next_arrival_time, curr_ev->src, generate_dest(curr_ev->src), next_arrival_len, generate_transmission_time(next_arrival_len), false);
 
     } else { // channel is busy, sense it again
-        // cout << "CHANNEL BUSY FOR ARRIVAL" << endl;
         double next_arrival_time = current_time + SENSE;
         create_arrival(next_arrival_time, curr_ev->src, curr_ev->dest, curr_ev->fr->r, curr_ev->fr->transmission_time, curr_ev->fr->is_ack);
     }
 }
 
 void process_backoff_event(Event* curr_ev) {
-    // cout << "Process backoff event" << endl;
     current_time = curr_ev->event_time; 
 
     if (channel_idle) {
@@ -265,14 +261,12 @@ void process_backoff_event(Event* curr_ev) {
             create_backoff(next_backoff_time, curr_ev, decrement_backoff);
         }
     } else { // channel is busy, freeze counter and sense again
-        // cout << "CHANNEL BUSY FOR BACKOFF" << endl;
         double next_backoff_time = current_time + SENSE; 
         create_backoff(next_backoff_time, curr_ev, hosts[curr_ev->src]->backoff);
     }
 }
 
 void process_departure_event(Event* curr_ev) {
-    // cout << "Process departure event" << endl;
     current_time = curr_ev->event_time;
     transmitted_bytes += curr_ev->fr->r;
     double ack_trans_time = generate_transmission_time(ACK_FRAME);
@@ -319,13 +313,10 @@ void initialize() {
 }
 
 int main() {
-    cout << fixed << endl;
-    cout << setprecision(5);
 
     initialize();
 
     for (int i = 0; i < 100000; ++i) {
-        // cout << "**i " << i << endl;
         if (GELsize == 0) {
             break;
         }
