@@ -33,11 +33,11 @@ struct Event {
 /* Global variables for processing */
 double current_time;
 bool channel_idle;
+double ARRIVAL_RATE; // lambda
 
 /* Constant variables for processing */
-const int NUM_HOSTS = 10;
-const int T = 40;
-const double ARRIVAL_RATE = 0.01; // lambda
+const int NUM_HOSTS = 50;
+const int T = 150;
 const double MAX_FRAME = 1544;
 const double ACK_FRAME = 64;
 const double CHANNEL_CAP = 10000000; // 1 Mbps = 10^6 bits/sec 
@@ -230,7 +230,7 @@ void process_arrival_event(Event* curr_ev) {
     if (channel_idle) { // Since channel is not busy, go to backoff procedure right away
         if (hosts[curr_ev->src]->backoff >= 0) { // if backoff procedure is already underway for a host, put frame in buffer
             hosts[curr_ev->src]->buffer.push(curr_ev);
-            curr_ev->fr->queue_time = current_time;
+            curr_ev->fr->queue_time = current_time + DIFS;
             return;
         }
         double backoff_event_time = current_time + DIFS;
@@ -313,6 +313,9 @@ void initialize() {
 }
 
 int main() {
+
+    cout << "Enter the arrival rate: ";
+    cin >> ARRIVAL_RATE;
 
     initialize();
 
